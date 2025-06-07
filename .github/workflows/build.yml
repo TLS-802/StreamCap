@@ -243,6 +243,14 @@ jobs:
           echo "--- Contents of StreamCap.app ---"
           ls -lR dist/StreamCap.app
           echo "---------------------------------"
+
+      - name: Fix macOS app icon and permissions
+        run: |
+          # 确保 Appicon.icns 在 Resources 目录下
+          mkdir -p dist/StreamCap.app/Contents/Resources
+          cp Appicon.icns dist/StreamCap.app/Contents/Resources/
+          # 修复可执行权限
+          chmod +x dist/StreamCap.app/Contents/MacOS/StreamCap
       
       - name: Create DMG
         run: |
@@ -357,4 +365,4 @@ jobs:
             - macOS: 下载DMG文件，打开并将应用拖动到应用程序文件夹
             
             ### 使用方法
-            请参考[使用文档](https://github.com/ihmily/StreamCap/wiki) 
+            请参考[使用文档](https://github.com/ihmily/StreamCap/wiki)
