@@ -1,0 +1,132 @@
+name: Build Application
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'app/**'
+      - 'assets/**'
+      - 'config/**'
+      - 'locales/**'
+      - 'main.py'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  extract-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Get version from pyproject.toml
+        id: get-version
+        run: |
+          VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d '"' -f 2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+  build-windows:
+    needs: extract-version
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      - name: Download FFmpeg for Windows
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile "ffmpeg.zip"
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "."
+          Move-Item -Path "ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe" -Destination "."
+          Move-Item -Path "ffmpeg-master-latest-win64-gpl\bin\ffprobe.exe" -Destination "."
+      
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --name=StreamCap --icon=assets/icon.ico --windowed --noconfirm --add-data="assets;assets" --add-data="config;config" --add-data="locales;locales" --add-data="ffmpeg.exe;." --add-data="ffprobe.exe;." main.py
+      
+      - name: Create ZIP archive
+        run: |
+          cd dist
+          Compress-Archive -Path StreamCap -DestinationPath "StreamCap-${{ needs.extract-version.outputs.version }}-win.zip"
+      
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: StreamCap-Windows
+          path: dist/StreamCap-${{ needs.extract-version.outputs.version }}-win.zip
+  
+  build-macos:
+    needs: extract-version
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      - name: Download FFmpeg for macOS
+        run: |
+          brew install ffmpeg
+          mkdir -p ffmpeg
+          cp $(which ffmpeg) ffmpeg/
+          cp $(which ffprobe) ffmpeg/
+      
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --name=StreamCap --icon=assets/icon.ico --windowed --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data="ffmpeg:ffmpeg" main.py
+      
+      - name: Create DMG
+        run: |
+          pip install dmgbuild
+          dmgbuild -s dmg_settings.py "StreamCap" "dist/StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg"
+        env:
+          APP_PATH: dist/StreamCap.app
+      
+      - name: Upload macOS build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: StreamCap-macOS
+          path: dist/StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg
+  
+  create-tag:
+    needs: [extract-version, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Create Tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a v${{ needs.extract-version.outputs.version }} -m "Release v${{ needs.extract-version.outputs.version }}"
+          git push origin v${{ needs.extract-version.outputs.version }} 
