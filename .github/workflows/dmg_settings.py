@@ -1,10 +1,9 @@
 """DMG Settings for macOS package"""
 
 import os
-import plistlib
 
 # Get the APP_PATH from environment
-application_path = os.environ.get('APP_PATH', 'dist/StreamCap.app')
+application_path = os.environ.get('APP_PATH', 'dist/DMG/StreamCap.app')
 
 # Volume format (see hdiutil create -help)
 format = 'UDBZ'
@@ -30,5 +29,5 @@ window_rect = ((100, 100), (640, 300))
 # Background
 background = 'builtin-arrow'
 
-# Icon
-icon = os.path.join(os.path.dirname(application_path), '..', 'assets', 'icon.ico') 
+# Icon - comment out for now to avoid issues
+# icon = os.path.join(os.path.dirname(application_path), '..', 'assets', 'icon.ico') 
