@@ -218,37 +218,77 @@ jobs:
           </plist>
           EOF
       
-      - name: Build with PyInstaller
+      - name: Create macOS App Bundle Manually
         run: |
-          # 使用--osx-bundle-identifier设置包标识符
+          # 创建基本的应用程序包结构
+          mkdir -p StreamCap.app/Contents/{MacOS,Resources}
+          mkdir -p StreamCap.app/Contents/_CodeSignature
+          mkdir -p StreamCap.app/Contents/MacOS/{logs,downloads,assets,config,locales,ffmpeg}
+          
+          # 复制Info.plist
+          cp Info.plist StreamCap.app/Contents/
+          
+          # 复制图标
+          cp Appicon.icns StreamCap.app/Contents/Resources/
+          
+          # 使用PyInstaller构建基本应用
           pyinstaller --name=StreamCap \
-            --icon=Appicon.icns \
             --noconsole \
+            --onefile \
             --noconfirm \
-            --osx-bundle-identifier=io.github.ihmily.streamcap \
-            --add-data="assets:assets" \
-            --add-data="config:config" \
-            --add-data="locales:locales" \
-            --add-data="ffmpeg:ffmpeg" \
-            --add-data="Info.plist:./" \
-            --add-data="Appicon.icns:." \
+            --clean \
             main.py
-      
-      - name: Fix App Bundle Structure
-        run: |
-          # 复制Info.plist到正确位置
-          cp Info.plist dist/StreamCap.app/Contents/
           
-          # 确保图标在正确位置
-          mkdir -p dist/StreamCap.app/Contents/Resources
-          cp Appicon.icns dist/StreamCap.app/Contents/Resources/
+          # 复制可执行文件
+          cp dist/StreamCap StreamCap.app/Contents/MacOS/
           
-          # 创建必要的目录
-          mkdir -p dist/StreamCap.app/Contents/MacOS/logs
-          mkdir -p dist/StreamCap.app/Contents/MacOS/downloads
+          # 复制资源文件
+          cp -r assets/* StreamCap.app/Contents/MacOS/assets/
+          cp -r config/* StreamCap.app/Contents/MacOS/config/
+          cp -r locales/* StreamCap.app/Contents/MacOS/locales/
+          cp -r ffmpeg/* StreamCap.app/Contents/MacOS/ffmpeg/
+          cp .env StreamCap.app/Contents/MacOS/
           
-          # 设置正确的权限
-          chmod +x dist/StreamCap.app/Contents/MacOS/StreamCap
+          # 创建CodeResources文件
+          cat > StreamCap.app/Contents/_CodeSignature/CodeResources << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>files</key>
+              <dict>
+                  <key>Resources/Appicon.icns</key>
+                  <data>/e1PRUFzEOP13fqqbSP4Myh45vY=</data>
+              </dict>
+              <key>files2</key>
+              <dict>
+                  <key>Resources/Appicon.icns</key>
+                  <dict>
+                      <key>hash2</key>
+                      <data>zgZBHAffD7jZ2sTp6AYX4TdwOYKzGLUdl87jGvmspsQ=</data>
+                  </dict>
+              </dict>
+              <key>rules</key>
+              <dict>
+                  <key>^Resources/</key>
+                  <true/>
+                  <key>^Resources/.*\.lproj/</key>
+                  <dict>
+                      <key>optional</key>
+                      <true/>
+                      <key>weight</key>
+                      <real>1000</real>
+                  </dict>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+          
+          # 设置可执行权限
+          chmod +x StreamCap.app/Contents/MacOS/StreamCap
+          
+          # 移动到dist目录
+          mv StreamCap.app dist/
       
       - name: Create DMG
         run: |
