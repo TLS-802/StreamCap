@@ -14,6 +14,11 @@ on:
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
+# 添加权限配置
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   extract-version:
     runs-on: ubuntu-latest
@@ -185,14 +190,33 @@ jobs:
   create-tag:
     needs: [extract-version, build-windows, build-macos]
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ needs.extract-version.outputs.version }}
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
         
       - name: Create Tag
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git tag -a v${{ needs.extract-version.outputs.version }} -m "Release v${{ needs.extract-version.outputs.version }}"
-          git push origin v${{ needs.extract-version.outputs.version }} 
+          git push origin v${{ needs.extract-version.outputs.version }}
+  
+  trigger-release:
+    needs: [create-tag]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Sleep for 10 seconds
+        run: sleep 10s
+        shell: bash
+        
+      - name: Trigger Release Workflow
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: Create Release
+          token: ${{ secrets.GITHUB_TOKEN }} 
