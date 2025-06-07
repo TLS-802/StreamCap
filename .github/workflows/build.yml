@@ -175,15 +175,80 @@ jobs:
           sips -z 512 512 temp_icon.png --out icon.iconset/icon_512x512.png
           
           # 创建ICNS文件
-          iconutil -c icns icon.iconset -o StreamCap.icns
+          iconutil -c icns icon.iconset -o Appicon.icns
           
           # 显示生成的图标文件
-          ls -la StreamCap.icns
+          ls -la Appicon.icns
+      
+      - name: Create Info.plist
+        run: |
+          cat > Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleDisplayName</key>
+              <string>StreamCap</string>
+              <key>CFBundleExecutable</key>
+              <string>StreamCap</string>
+              <key>CFBundleIconFile</key>
+              <string>Appicon.icns</string>
+              <key>CFBundleIdentifier</key>
+              <string>io.github.ihmily.streamcap</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>StreamCap</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${{ needs.extract-version.outputs.version }}</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>LSEnvironment</key>
+              <dict>
+                  <key>PLATFORM</key>
+                  <string>desktop</string>
+              </dict>
+              <key>NSPrincipalClass</key>
+              <string>NSApplication</string>
+              <key>NSRequiresAquaSystemAppearance</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
       
       - name: Build with PyInstaller
         run: |
-          # 使用--noconsole替代--windowed，避免双窗口问题
-          pyinstaller --name=StreamCap --icon=StreamCap.icns --noconsole --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data=".env:." --add-data="ffmpeg:ffmpeg" main.py
+          # 使用--osx-bundle-identifier设置包标识符
+          pyinstaller --name=StreamCap \
+            --icon=Appicon.icns \
+            --noconsole \
+            --noconfirm \
+            --osx-bundle-identifier=io.github.ihmily.streamcap \
+            --add-data="assets:assets" \
+            --add-data="config:config" \
+            --add-data="locales:locales" \
+            --add-data="ffmpeg:ffmpeg" \
+            --add-data="Info.plist:./" \
+            --add-data="Appicon.icns:." \
+            main.py
+      
+      - name: Fix App Bundle Structure
+        run: |
+          # 复制Info.plist到正确位置
+          cp Info.plist dist/StreamCap.app/Contents/
+          
+          # 确保图标在正确位置
+          mkdir -p dist/StreamCap.app/Contents/Resources
+          cp Appicon.icns dist/StreamCap.app/Contents/Resources/
+          
+          # 创建必要的目录
+          mkdir -p dist/StreamCap.app/Contents/MacOS/logs
+          mkdir -p dist/StreamCap.app/Contents/MacOS/downloads
+          
+          # 设置正确的权限
+          chmod +x dist/StreamCap.app/Contents/MacOS/StreamCap
       
       - name: Create DMG
         run: |
