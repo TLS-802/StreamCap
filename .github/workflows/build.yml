@@ -99,22 +99,41 @@ jobs:
           cp $(which ffmpeg) ffmpeg/
           cp $(which ffprobe) ffmpeg/
       
+      - name: Copy dmg_settings.py
+        run: |
+          cp .github/workflows/dmg_settings.py .
+          cat dmg_settings.py
+      
       - name: Build with PyInstaller
         run: |
-          pyinstaller --name=StreamCap --icon=assets/icon.ico --windowed --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data="ffmpeg:ffmpeg" main.py
+          pyinstaller --name=StreamCap --windowed --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data="ffmpeg:ffmpeg" main.py
+          ls -la dist/
       
       - name: Create DMG
         run: |
           pip install dmgbuild
+          mkdir -p dist/DMG
+          mv dist/StreamCap.app dist/DMG/
           dmgbuild -s dmg_settings.py "StreamCap" "dist/StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg"
         env:
-          APP_PATH: dist/StreamCap.app
+          APP_PATH: dist/DMG/StreamCap.app
       
+      - name: List artifacts
+        run: |
+          ls -la dist/
+          
       - name: Upload macOS build artifact
         uses: actions/upload-artifact@v4
         with:
           name: StreamCap-macOS
           path: dist/StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg
+      
+      - name: Upload app as fallback
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: StreamCap-macOS-App
+          path: dist/DMG/StreamCap.app
   
   create-tag:
     needs: [extract-version, build-windows, build-macos]
