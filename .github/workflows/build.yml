@@ -218,91 +218,31 @@ jobs:
           </plist>
           EOF
       
-      - name: Create macOS App Bundle Manually
+      - name: Build macOS App with PyInstaller
         run: |
-          # 删除PyInstaller可能已创建的.spec文件
-          rm -f StreamCap.spec
-          
-          # 创建自定义应用程序包(使用不同的名称以避免冲突)
-          mkdir -p StreamCapApp.app/Contents/{MacOS,Resources}
-          mkdir -p StreamCapApp.app/Contents/_CodeSignature
-          mkdir -p StreamCapApp.app/Contents/MacOS/{logs,downloads,assets,config,locales,ffmpeg}
-          
-          # 复制Info.plist
-          cp Info.plist StreamCapApp.app/Contents/
-          
-          # 复制图标
-          cp Appicon.icns StreamCapApp.app/Contents/Resources/
-          
-          # 使用PyInstaller构建基本应用(使用onedir模式而不是onefile)
-          pyinstaller --name=StreamCap \
+          # PyInstaller将创建.app包。
+          # 我们使用 --onedir 和 --noconsole，并提供所有数据文件和图标。
+          # PyInstaller会将数据文件放置在Contents/MacOS中，与可执行文件放在一起。
+          pyinstaller --name "StreamCap" \
             --noconsole \
             --onedir \
+            --icon "Appicon.icns" \
+            --add-data "assets:assets" \
+            --add-data "config:config" \
+            --add-data "locales:locales" \
+            --add-data "ffmpeg:ffmpeg" \
+            --add-data ".env:." \
             --noconfirm \
             --clean \
             main.py
           
-          # 复制可执行文件
-          cp dist/StreamCap/StreamCap StreamCapApp.app/Contents/MacOS/
+          # PyInstaller会创建一个默认的Info.plist。我们用自定义的那个替换它。
+          cp Info.plist dist/StreamCap.app/Contents/
           
-          # 复制资源文件
-          mkdir -p StreamCapApp.app/Contents/MacOS/assets
-          mkdir -p StreamCapApp.app/Contents/MacOS/config
-          mkdir -p StreamCapApp.app/Contents/MacOS/locales
-          mkdir -p StreamCapApp.app/Contents/MacOS/ffmpeg
-          
-          cp -r assets/* StreamCapApp.app/Contents/MacOS/assets/
-          cp -r config/* StreamCapApp.app/Contents/MacOS/config/
-          cp -r locales/* StreamCapApp.app/Contents/MacOS/locales/
-          cp -r ffmpeg/* StreamCapApp.app/Contents/MacOS/ffmpeg/
-          cp .env StreamCapApp.app/Contents/MacOS/
-          
-          # 创建CodeResources文件
-          cat > StreamCapApp.app/Contents/_CodeSignature/CodeResources << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>files</key>
-              <dict>
-                  <key>Resources/Appicon.icns</key>
-                  <data>/e1PRUFzEOP13fqqbSP4Myh45vY=</data>
-              </dict>
-              <key>files2</key>
-              <dict>
-                  <key>Resources/Appicon.icns</key>
-                  <dict>
-                      <key>hash2</key>
-                      <data>zgZBHAffD7jZ2sTp6AYX4TdwOYKzGLUdl87jGvmspsQ=</data>
-                  </dict>
-              </dict>
-              <key>rules</key>
-              <dict>
-                  <key>^Resources/</key>
-                  <true/>
-                  <key>^Resources/.*\.lproj/</key>
-                  <dict>
-                      <key>optional</key>
-                      <true/>
-                      <key>weight</key>
-                      <real>1000</real>
-                  </dict>
-              </dict>
-          </dict>
-          </plist>
-          EOF
-          
-          # 设置可执行权限
-          chmod +x StreamCapApp.app/Contents/MacOS/StreamCap
-          
-          # 清理PyInstaller生成的dist目录
-          rm -rf dist/StreamCap.app
-          
-          # 移动到dist目录
-          mv StreamCapApp.app dist/StreamCap.app
-          
-          # 列出生成的应用程序结构(用于调试)
-          find dist/StreamCap.app -type f | sort
+          # 为了调试目的，列出生成的应用程序的结构
+          echo "--- Contents of StreamCap.app ---"
+          ls -lR dist/StreamCap.app
+          echo "---------------------------------"
       
       - name: Create DMG
         run: |
