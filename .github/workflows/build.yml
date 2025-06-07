@@ -99,41 +99,56 @@ jobs:
           cp $(which ffmpeg) ffmpeg/
           cp $(which ffprobe) ffmpeg/
       
-      - name: Copy dmg_settings.py
-        run: |
-          cp .github/workflows/dmg_settings.py .
-          cat dmg_settings.py
-      
       - name: Build with PyInstaller
         run: |
-          pyinstaller --name=StreamCap --windowed --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data="ffmpeg:ffmpeg" main.py
-          ls -la dist/
+          pyinstaller --name=StreamCap --icon=assets/icon.ico --windowed --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data="ffmpeg:ffmpeg" main.py
       
       - name: Create DMG
         run: |
           pip install dmgbuild
-          mkdir -p dist/DMG
-          mv dist/StreamCap.app dist/DMG/
-          dmgbuild -s dmg_settings.py "StreamCap" "dist/StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg"
-        env:
-          APP_PATH: dist/DMG/StreamCap.app
-      
-      - name: List artifacts
-        run: |
-          ls -la dist/
+          # 复制图标文件到固定位置
+          cp assets/icon.ico dist/
+          # 创建dmg_settings.py文件在dist目录
+          cat > dist/dmg_settings.py << 'EOF'
+          # DMG Settings for macOS package
+          import os
           
+          # Volume format (see hdiutil create -help)
+          format = 'UDBZ'
+          
+          # Volume size
+          size = None
+          
+          # Files to include
+          files = ['StreamCap.app']
+          
+          # Symlinks to create
+          symlinks = {'Applications': '/Applications'}
+          
+          # Where to put the icons
+          icon_locations = {
+              'StreamCap.app': (140, 120),
+              'Applications': (500, 120)
+          }
+          
+          # Window configuration
+          window_rect = ((100, 100), (640, 300))
+          
+          # Background
+          background = 'builtin-arrow'
+          
+          # Icon - use a file we know exists
+          icon = 'icon.ico'
+          EOF
+          
+          cd dist
+          dmgbuild -s dmg_settings.py "StreamCap" "StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg"
+      
       - name: Upload macOS build artifact
         uses: actions/upload-artifact@v4
         with:
           name: StreamCap-macOS
           path: dist/StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg
-      
-      - name: Upload app as fallback
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: StreamCap-macOS-App
-          path: dist/DMG/StreamCap.app
   
   create-tag:
     needs: [extract-version, build-windows, build-macos]
