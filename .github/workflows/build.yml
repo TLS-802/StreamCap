@@ -99,18 +99,35 @@ jobs:
           cp $(which ffmpeg) ffmpeg/
           cp $(which ffprobe) ffmpeg/
       
-      - name: Convert icon to ICNS format
+      - name: Create ICNS icon
         run: |
           # 创建临时图标目录
           mkdir -p icon.iconset
           
-          # 使用sips工具将ICO转换为多种尺寸的PNG
-          sips -s format png assets/icon.ico --out icon.iconset/icon_16x16.png -z 16 16
-          sips -s format png assets/icon.ico --out icon.iconset/icon_32x32.png -z 32 32
-          sips -s format png assets/icon.ico --out icon.iconset/icon_64x64.png -z 64 64
-          sips -s format png assets/icon.ico --out icon.iconset/icon_128x128.png -z 128 128
-          sips -s format png assets/icon.ico --out icon.iconset/icon_256x256.png -z 256 256
-          sips -s format png assets/icon.ico --out icon.iconset/icon_512x512.png -z 512 512
+          # 创建一个临时PNG图标文件
+          python -c "
+          from PIL import Image
+          import os
+          # 尝试打开ICO文件
+          try:
+              img = Image.open('assets/icon.ico')
+              img.save('temp_icon.png')
+              print('成功转换ICO到PNG')
+          except Exception as e:
+              print(f'转换失败: {e}')
+              # 创建一个简单的默认图标
+              img = Image.new('RGB', (512, 512), color=(66, 91, 255))
+              img.save('temp_icon.png')
+              print('创建了默认图标')
+          "
+          
+          # 使用sips工具创建多种尺寸的PNG
+          sips -z 16 16 temp_icon.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32 temp_icon.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64 temp_icon.png --out icon.iconset/icon_64x64.png
+          sips -z 128 128 temp_icon.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256 temp_icon.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512 temp_icon.png --out icon.iconset/icon_512x512.png
           
           # 创建ICNS文件
           iconutil -c icns icon.iconset -o StreamCap.icns
