@@ -90,7 +90,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller pillow
       
       - name: Download FFmpeg for macOS
         run: |
@@ -99,15 +99,33 @@ jobs:
           cp $(which ffmpeg) ffmpeg/
           cp $(which ffprobe) ffmpeg/
       
+      - name: Convert icon to ICNS format
+        run: |
+          # 创建临时图标目录
+          mkdir -p icon.iconset
+          
+          # 使用sips工具将ICO转换为多种尺寸的PNG
+          sips -s format png assets/icon.ico --out icon.iconset/icon_16x16.png -z 16 16
+          sips -s format png assets/icon.ico --out icon.iconset/icon_32x32.png -z 32 32
+          sips -s format png assets/icon.ico --out icon.iconset/icon_64x64.png -z 64 64
+          sips -s format png assets/icon.ico --out icon.iconset/icon_128x128.png -z 128 128
+          sips -s format png assets/icon.ico --out icon.iconset/icon_256x256.png -z 256 256
+          sips -s format png assets/icon.ico --out icon.iconset/icon_512x512.png -z 512 512
+          
+          # 创建ICNS文件
+          iconutil -c icns icon.iconset -o StreamCap.icns
+          
+          # 显示生成的图标文件
+          ls -la StreamCap.icns
+      
       - name: Build with PyInstaller
         run: |
-          pyinstaller --name=StreamCap --icon=assets/icon.ico --windowed --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data="ffmpeg:ffmpeg" main.py
+          pyinstaller --name=StreamCap --icon=StreamCap.icns --windowed --noconfirm --add-data="assets:assets" --add-data="config:config" --add-data="locales:locales" --add-data="ffmpeg:ffmpeg" main.py
       
       - name: Create DMG
         run: |
           pip install dmgbuild
-          # 复制图标文件到固定位置
-          cp assets/icon.ico dist/
+          
           # 创建dmg_settings.py文件在dist目录
           cat > dist/dmg_settings.py << 'EOF'
           # DMG Settings for macOS package
@@ -136,9 +154,6 @@ jobs:
           
           # Background
           background = 'builtin-arrow'
-          
-          # Icon - use a file we know exists
-          icon = 'icon.ico'
           EOF
           
           cd dist
