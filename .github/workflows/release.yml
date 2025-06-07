@@ -1,0 +1,71 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Get version
+        id: get-version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Releasing version: $VERSION"
+      
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: StreamCap-Windows
+          path: dist
+      
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: StreamCap-macOS
+          path: dist
+      
+      - name: List artifacts
+        run: ls -la dist/
+      
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get-version.outputs.version }}
+          name: StreamCap v${{ steps.get-version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/StreamCap-${{ steps.get-version.outputs.version }}-win.zip
+            dist/StreamCap-${{ steps.get-version.outputs.version }}-mac.dmg
+          body: |
+            # StreamCap v${{ steps.get-version.outputs.version }}
+            
+            ## 新版本发布
+            
+            ### 安装包下载
+            - [Windows 版本](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/StreamCap-${{ steps.get-version.outputs.version }}-win.zip)
+            - [macOS 版本](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/StreamCap-${{ steps.get-version.outputs.version }}-mac.dmg)
+            
+            ### 安装说明
+            - Windows: 下载并解压ZIP文件，运行StreamCap.exe
+            - macOS: 下载DMG文件，打开并将应用拖动到应用程序文件夹
+            
+            ### 使用方法
+            请参考[使用文档](https://github.com/ihmily/StreamCap/wiki) 
