@@ -63,6 +63,22 @@ jobs:
           Move-Item -Path "ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe" -Destination "."
           Move-Item -Path "ffmpeg-master-latest-win64-gpl\bin\ffprobe.exe" -Destination "."
       
+      - name: Create default config files
+        run: |
+          # 确保config目录存在所需的默认配置文件
+          if (!(Test-Path "config/user_settings.json")) {
+            Copy-Item "config/default_settings.json" -Destination "config/user_settings.json"
+          }
+          if (!(Test-Path "config/accounts.json")) {
+            echo "{}" | Out-File -FilePath "config/accounts.json" -Encoding utf8
+          }
+          if (!(Test-Path "config/recordings.json")) {
+            echo "[]" | Out-File -FilePath "config/recordings.json" -Encoding utf8
+          }
+          if (!(Test-Path "config/cookies.json")) {
+            echo "{}" | Out-File -FilePath "config/cookies.json" -Encoding utf8
+          }
+      
       - name: Build with PyInstaller
         run: |
           pyinstaller --name=StreamCap --icon=assets/icon.ico --windowed --noconfirm --add-data="assets;assets" --add-data="config;config" --add-data="locales;locales" --add-data="ffmpeg.exe;." --add-data="ffprobe.exe;." main.py
@@ -103,6 +119,22 @@ jobs:
           mkdir -p ffmpeg
           cp $(which ffmpeg) ffmpeg/
           cp $(which ffprobe) ffmpeg/
+      
+      - name: Create default config files
+        run: |
+          # 确保config目录存在所需的默认配置文件
+          if [ ! -f "config/user_settings.json" ]; then
+            cp config/default_settings.json config/user_settings.json
+          fi
+          if [ ! -f "config/accounts.json" ]; then
+            echo "{}" > config/accounts.json
+          fi
+          if [ ! -f "config/recordings.json" ]; then
+            echo "[]" > config/recordings.json
+          fi
+          if [ ! -f "config/cookies.json" ]; then
+            echo "{}" > config/cookies.json
+          fi
       
       - name: Create ICNS icon
         run: |
@@ -192,14 +224,28 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ needs.extract-version.outputs.version }}
+      tag_exists: ${{ steps.check-tag.outputs.exists }}
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      
+      - name: Check if tag exists
+        id: check-tag
+        run: |
+          VERSION=${{ needs.extract-version.outputs.version }}
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v$VERSION already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag v$VERSION does not exist"
+          fi
         
       - name: Create Tag
+        if: steps.check-tag.outputs.exists == 'false'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -209,6 +255,7 @@ jobs:
   trigger-release:
     needs: [create-tag]
     runs-on: ubuntu-latest
+    if: needs.create-tag.outputs.tag_exists == 'false'
     
     steps:
       - name: Sleep for 10 seconds
