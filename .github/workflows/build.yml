@@ -68,7 +68,7 @@ jobs:
           Compress-Archive -Path StreamCap -DestinationPath "StreamCap-${{ needs.extract-version.outputs.version }}-win.zip"
       
       - name: Upload Windows build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: StreamCap-Windows
           path: dist/StreamCap-${{ needs.extract-version.outputs.version }}-win.zip
@@ -111,7 +111,7 @@ jobs:
           APP_PATH: dist/StreamCap.app
       
       - name: Upload macOS build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: StreamCap-macOS
           path: dist/StreamCap-${{ needs.extract-version.outputs.version }}-mac.dmg
